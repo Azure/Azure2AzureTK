@@ -1,0 +1,22 @@
+[
+    {
+        "Workload": "SAP",
+        "Subscriptions": [
+            "<Guid>",
+            "<Guid>"
+        ]
+    },
+    {
+        "Workload": "Citrix",
+        "Subscriptions": [
+            "<Guid>",
+            "<Guid>"
+        ]
+    },
+    {
+        "Workload": "PLM",
+        "Subscriptions": [
+            "<Guid>"
+        ]
+    }
+]

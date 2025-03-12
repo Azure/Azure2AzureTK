@@ -1,0 +1,35 @@
+// Show ExpressRoute circuits
+let expressRouteCircuits = resources
+| where type == "microsoft.network/expressroutecircuits"
+| project circuitName = name, circuitId = id, location, resourceGroup;
+
+// Show ExpressRoute gateways
+let expressRouteGateways = resources
+| where type == "microsoft.network/expressroutegateways"
+| project gatewayName = name, gatewayId = id, location, resourceGroup;
+
+// Show interconnections between ExpressRoute circuits and gateways
+let interconnections = resources
+| where type == "microsoft.network/expressrouteconnections"
+| extend circuitId = tostring(properties.expressRouteCircuit.id), gatewayId = tostring(properties.expressRouteGateway.id)
+| project connectionName = name, circuitId, gatewayId;
+
+// Join the data to show the full details
+interconnections
+| join kind=inner (expressRouteCircuits) on $left.circuitId == $right.circuitId
+| join kind=inner (expressRouteGateways) on $left.gatewayId == $right.gatewayId
+| project connectionName, circuitName, gatewayName, location, resourceGroup
+
+// Show load balancers and their zone settings
+resources
+| where type == "microsoft.network/loadbalancers"
+| mv-expand fipc = properties.frontendIPConfigurations
+| extend IPConfigName = fipc.name
+| extend zones = fipc.zones
+| project subscriptionId, resourceGroup, name, IPConfigName, zones
+
+// Show public IP addresses and their redundancy settings
+resources
+| where type == "microsoft.network/publicipaddresses"
+| extend sku = tostring(properties.sku.name)
+| project publicIpName = name, sku, location, resourceGroup

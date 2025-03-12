@@ -1,0 +1,10 @@
+/////////////////////////////////////
+// Backups
+/////////////////////////////////////
+
+// Show the backup status of all VMs
+// NOTE: not tested!
+resources
+| where type == "microsoft.recoveryservices/vaults/backupFabrics/protectionContainers/protectedItems"
+| extend vmId = tostring(properties.friendlyName)
+| project vmId, backupStatus = tostring(properties.protectionState), lastBackupTime = todatetime(properties.lastBackupTime)
