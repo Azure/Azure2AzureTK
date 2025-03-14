@@ -1,0 +1,22 @@
+[
+    {
+        "Workload": "SAP",
+        "Subscriptions": [
+            "69f95403-8f1d-40b6-8ff0-beba8f41adea",
+            "b42a8bcf-60dd-4f42-9172-abc08ad2f282"
+        ]
+    },
+    {
+        "Workload": "Citrix",
+        "Subscriptions": [
+            "3b7e8696-d30a-4b2b-acc3-8e2d46956948",
+            "87155661-b471-4573-a86b-1a0d5120b09a"
+        ]
+    },
+    {
+        "Workload": "PLM",
+        "Subscriptions": [
+            "e8605972-0a89-4d50-acce-6a6426c06163"
+        ]
+    }
+]

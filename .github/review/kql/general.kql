@@ -1,0 +1,71 @@
+// Subscription filter
+| where subscriptionId in (
+  "e2e56cbe-ebd1-431f-b179-f095b777abc6",
+  "57cff17a-faab-46c9-8da2-1b35396796c8" ) // ARO
+
+| where subscriptionId in (
+  "aa686c92-30ac-4a92-a896-92cc0bc8776d",
+  "751761ac-c74d-4dd2-831c-7a320bcd9171",
+  "9946b48f-6134-4642-bdfc-bfaccaa1abe3",
+  "49a0edfc-52f6-4409-b533-ef28ea8b3409",
+  "49f7cf61-3f60-4d99-b7a3-7098a11b6d9b",
+  "c993ad7a-f0c3-4398-b3b6-a111a5f7592a",
+  "37cfc57e-ae54-4638-b451-43ceba8c04d2",
+  "e726eaef-4972-4184-b06f-00234302dc53" ) // Citrix
+
+| where subscriptionId in (
+  "2228b515-e1c7-4457-83ba-87888ec1efce",
+  "28e8a2d6-b135-493f-95d5-6d8b78cff2d2",
+  "7512593c-5721-4acc-a276-f5976e03b17a",
+  "a86a553b-2009-40c2-a121-f84341980bb8",
+  "c7c8c987-249f-45c4-97e5-1e217b9c3a91",
+  "7634188d-b228-40db-86f8-cc971240786e",
+  "38d08dec-e602-46bc-a5bb-914b4e9fe0c0",
+  "8e0c2373-e8b9-434a-964a-a5c8a267cf65",
+  "26e24311-34dd-4739-a24a-90074fa3dbd1" ) // PLM
+
+// Show number of resources by type
+resources | summarize count() by type | order by count_ desc
+
+resources
+| where subscriptionId in ( 
+        "8ca30334-3939-4e10-a1e3-2a39a624cf84" )  // SKF 4 me prod
+| summarize count() by type
+| order by count_ desc
+
+// Show number of resources by type and location
+resources | summarize count() by type, location
+
+// Show resources with a certain tag
+resources | where tags['environment'] == 'dev'     // case sensitive
+resources | where tags.environment =~ 'dev'        // case insensitive
+
+// Show resources missing a tag
+resources | where isempty(tags.environment)
+resources | where isnull(tags.OwnerEmail)     // not sure of the difference between these
+
+// Count the number of PaaS resources
+resources
+| where type =~ 'Microsoft.Web/sites'             // App Services ??
+  or type =~ 'Microsoft.Web/serverFarms'          // App Service Plans
+  or type =~ 'Microsoft.Web/hostingEnvironments'  // App Service Environments
+  or type =~ 'Microsoft.Sql/servers'              // Azure SQL servers
+  or type =~ 'Microsoft.Sql/servers/databases'    // Azure SQL databases
+  or type =~ 'Microsoft.Sql/managedInstances'     // Azure SQL managed instances
+| summarize count() by type
+| order by count_ desc
+
+// Count the number of IaaS resources
+resources
+| where type =~ 'Microsoft.Compute/virtualMachines'
+  or type =~ 'Microsoft.Compute/virtualMachineScaleSets'
+  or type =~ 'Microsoft.Network/networkInterfaces'
+  or type =~ 'Microsoft.Network/networkSecurityGroups'
+  or type =~ 'Microsoft.Network/virtualNetworks'
+  or type =~ 'Microsoft.Network/loadBalancers'
+  or type =~ 'Microsoft.Network/publicIPAddresses'
+  or type =~ 'Microsoft.Network/applicationGateways'
+  or type =~ 'Microsoft.Network/trafficManagerProfiles'
+  or type =~ 'Microsoft.Storage/storageAccounts'
+| summarize count() by type
+| order by count_ desc
