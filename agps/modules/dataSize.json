@@ -1,0 +1,8 @@
+[
+    {
+        "resourceType": "microsoft.storage/storageaccounts",
+        "cmdLine": "(Get-AzMetric -ResourceId $ResourceId).Data.average",
+        "description": "Get data size for a storage account",
+        "isContainedInOriginalGraphOutput": false
+      }
+]

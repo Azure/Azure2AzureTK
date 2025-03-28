@@ -1,0 +1,8 @@
+[
+  {
+    "resourceType": "microsoft.Network/publicipaddresses",
+    "description": "Get IP address for a public IP address",
+    "property": "properties.ipAddress",
+    "isContainedInOriginalGraphOutput": true
+  }
+]
