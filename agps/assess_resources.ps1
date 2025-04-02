@@ -1,0 +1,213 @@
+<#.SYNOPSIS
+    Assess Azure resources by querying Resource Graph and extracting specific properties or metadata.
+
+.DESCRIPTION
+    This script queries Azure Resource Graph to retrieve information about resources within a specified scope 
+    (single subscription, resource group, or multiple subscriptions). It processes the results to extract 
+    additional properties or metadata based on predefined configurations and outputs the results to a JSON file.
+
+.PARAMETER scopeType
+    Specifies the scope type to run the query against. Valid values are 'singleSubscription', 'resourceGroup', 
+    or 'multiSubscription'. Default is 'singleSubscription'.
+
+.PARAMETER subscriptionId
+    The subscription ID to run the query against. If not provided, the current Azure context's subscription ID is used.
+
+.PARAMETER resourceGroupName
+    The name of the resource group to run the query against. Only applicable when scopeType is 'resourceGroup'.
+
+.PARAMETER workloadFile
+    The path to a JSON file containing subscription details. Used for multi-subscription scenarios.
+
+.PARAMETER outputFile
+    The name of the output file where the results will be exported. Default is "test.json".
+
+.FUNCTION Get-SingleSubscriptionData
+    Queries Azure Resource Graph for resources within a single subscription and retrieves all results, 
+    handling pagination if necessary.
+
+.FUNCTION Get-Property
+    Extracts a specific property from a given object and assigns it to a global variable.
+
+.FUNCTION Get-rType
+    Retrieves resource-specific metadata or properties based on a predefined JSON configuration file.
+
+.FUNCTION Get-Data
+    Processes extracted properties or executes commands to retrieve additional data for a resource.
+
+.FUNCTION Get-Method
+    Determines the appropriate method to retrieve resource-specific data based on the resource type and flag type.
+
+.EXAMPLE
+    PS C:\> .\assess_resources.ps1 -scopeType singleSubscription -subscriptionId "12345678-1234-1234-1234-123456789abc"
+    Runs the script for a single subscription with the specified subscription ID and outputs the results to the default file.
+
+.EXAMPLE
+    PS C:\> .\assess_resources.ps1 -scopeType resourceGroup -resourceGroupName "MyResourceGroup"
+    Runs the script for a specific resource group within the current subscription and outputs the results to the default file.
+
+.EXAMPLE
+    PS C:\> .\assess_resources.ps1 -scopeType multiSubscription -workloadFile "subscriptions.json" -outputFile "output.json"
+    Runs the script for multiple subscriptions defined in the workload file and outputs the results to "output.json".
+
+
+.OUTPUTS
+    JSON file containing the queried resource data and extracted properties.
+
+.NOTES
+    - Requires Azure PowerShell module to be installed and authenticated.
+    - Ensure the JSON configuration files (e.g., prsupport.json, azsupport.json) are present in the "modules" directory.
+    - Handles pagination for large datasets returned by Azure Resource Graph queries.
+#>
+
+
+param(
+    [Parameter(Mandatory = $false)] [ValidateSet('singleSubscription', 'resourceGroup', 'multiSubscription')] [string] $scopeType = 'singleSubscription', # scope type to run the query against
+    [Parameter(Mandatory = $false)] [string] $subscriptionId, # Subscription ID to run the query against
+    [Parameter(Mandatory = $false)] [string] $resourceGroupName, # Subscription ID to run the query against
+    [Parameter(Mandatory = $false)] [string] $workloadFile, # JSON file containing subscriptions
+    [Parameter(Mandatory = $false)] [string] $outputFile = "test.json" # Excel file to export the results to
+)
+
+Function Get-SingleSubscriptionData {
+    param(
+        [Parameter(Mandatory = $true)] [string] $subscriptionId,
+        [Parameter(Mandatory = $true)] [string] $query
+    )
+    $resultSet = @()
+    $response = Search-AzGraph -Query $query -Subscription $subscriptionId -First 1000
+    $resultSet += $response
+    # If a skip token is returned, there are more results to fetch
+    while ($null -ne $response.SkipToken) {
+        $response = Search-AzGraph -Query $query -Subscription $batch.Group -First 1000 -SkipToken $response.SkipToken
+        $resultSet += $response
+    }
+    $Global:baseresult = $resultSet
+}
+
+Function Get-Property {
+    param(
+        [Parameter(Mandatory = $true)] [pscustomobject] $object,
+        [Parameter(Mandatory = $true)] [string] $property,
+        [Parameter(Mandatory = $true)] [string] $outputVarName
+    )
+    If ($property -match "\.+") {
+        foreach ($part in $property -split '\.') {
+            $object = $object.$part
+            $object
+        }
+    }
+    else {
+        $object = $object.$property
+    }
+    Set-Variable -Name $outputVarName -Value $object -Scope Global
+}
+
+function Get-rType {
+    param (
+        [Parameter(Mandatory = $true)] [string] $filePath,
+        [Parameter(Mandatory = $true)] [pscustomobject] $object,
+        [Parameter(Mandatory = $true)] [string] $outputVarName,
+        [Parameter(Mandatory = $true)] [string] $resourceType
+    )
+    $json = Get-Content -Path $filePath | ConvertFrom-Json -depth 100
+    $propertyExists = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty isContainedInOriginalGraphOutput
+    if ($propertyExists) {
+        $property = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty property
+        Get-Property -object $object -property $property -outputVarName $outputVarName
+    }
+    elseif (!$propertyExists) {
+        $global:cmdLine = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty cmdLine
+    }
+    else {
+        $global:property = "N/A"
+    }
+
+}
+
+Function Get-Data {
+    Param(
+        [Parameter(Mandatory = $true)] [string] $outputVarName,
+        [Parameter(Mandatory = $false)][ValidateSet('pairedRegionFeature', 'AzSupport', 'Size', "IPandDNS")] [string] $flagType
+    )
+
+    if ($global:property -ne "N/A" -and $Global:property) {
+        "IP/DNS"
+        $global:property
+        Get-Property -object $PSItem -property $global:property -outputVarName "ipAddress"
+    }
+    elseif ($global:cmdLine) {
+        "CMDLINE"
+        "$global:cmdLine"
+        Invoke-Expression -Command $global:cmdLine -OutVariable ipAddress
+        $ipAddress
+    }
+    else {
+        $ipAddress = "N/A"
+    }
+}
+
+Function Get-Method {
+    Param(
+        [Parameter(Mandatory = $true)] [string] $resourceType,
+        [Parameter(Mandatory = $true)][ValidateSet('pairedRegionFeature', 'AzSupport', 'Size', "IPandDNS")] [string] $flagType,
+        [Parameter(Mandatory = $true)] [pscustomobject] $object
+    )
+    switch ($flagType) {
+        'pairedRegionFeature' { Get-rType -filePath .\modules\prsupport.json -object $object -outputVarName "pairedRegionFeature" -resourceType $resourceType }
+        'AzSupport' { Get-rType -filePath .\modules\azsupport.json -object $object -outputVarName "azSupport" -resourceType $resourceType }
+        'Size' { Get-rType -filePath .\modules\dataSize.json -object $object -outputVarName "dataSize" -resourceType $resourceType }
+        'IPandDNS' { Get-rType -filePath .\modules\IPandDNS.json -object $object -outputVarName "ipAddress" -resourceType $resourceType }
+    }
+}
+
+# Main script starts here
+$outputArray = @()
+
+Switch ($scopeType) {
+    'singleSubscription' {
+        $baseQuery = "resources"
+        if ($subscriptionId) {
+            $scope = "$subscriptionId"
+        }
+        else {
+            $scope = (Get-AzContext).Subscription.id
+        }
+        Get-SingleSubscriptionData -subscriptionId $scope -query $baseQuery
+    }
+    'resourceGroup' {
+        $subscriptionId = (Get-AzContext).Subscription.id
+        $scope = "$resourceGroupName"
+        #TBD
+    }
+    'multiSubscription' {
+        #TBD
+        $scope = "/subscriptions"
+        #Leverage code found in graph_query.ps1
+    }
+}
+$baseResult | ForEach-Object {
+    $resourceType = $PSItem.type
+    $resourceName = $PSItem.name
+    $resourceLocation = $PSItem.location
+    $resourceSubscriptionId = $PSItem.subscriptionId
+    $resourceID = $PSItem.id
+    $resourceName
+    Get-Method -resourceType $resourceType -flagType "pairedRegionFeature" -object $PSItem
+    Get-Method -resourceType $resourceType -flagType "AZSupport" -object $PSItem
+    Get-Method -resourceType $resourceType -flagType "Size" -object $PSItem
+    Get-Method -resourceType $resourceType -flagType "IPandDNS" -object $PSItem
+    $outObject = [PSCustomObject] @{
+        ResourceType           = $resourceType
+        ResourceName           = $resourceName
+        ResourceLocation       = $resourceLocation
+        ResourceSubscriptionId = $resourceSubscriptionId
+        ResourceID             = $resourceID
+        pairedRegionFeature    = $pairedRegionFeature
+        AzSupport              = $azSupport
+        dataSize               = $dataSize
+        ipAddress              = $ipAddress
+    }
+    $outputArray += $outObject
+}
+$outputArray | ConvertTo-Json -Depth 100 | Out-File -FilePath $outputFile

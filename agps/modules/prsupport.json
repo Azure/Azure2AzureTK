@@ -1,0 +1,14 @@
+[
+  {
+    "resourceType": "microsoft.storage/storageaccounts",
+    "description": "Get paired region support (GRS/RA-GRS) for a storage account",
+    "property": "sku.name",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.dataprotection/backupvaults",
+    "description": "Get paired region support (GRS/RA-GRS) for a backup vault",
+    "property": "properties.storageSettings.type",
+    "isContainedInOriginalGraphOutput": true
+  }
+]
