@@ -91,6 +91,9 @@ Function Get-Property {
         [Parameter(Mandatory = $true)] [string] $property,
         [Parameter(Mandatory = $true)] [string] $outputVarName
     )
+    #Reset variable to avoid conflicts
+    Set-Variable -Name $outputVarName -Value $null -Scope Global
+    Set-Variable -Name $outputVarName -Value $object -Scope Global
     If ($property -match "\.+") {
         foreach ($part in $property -split '\.') {
             $object = $object.$part
@@ -103,6 +106,17 @@ Function Get-Property {
     Set-Variable -Name $outputVarName -Value $object -Scope Global
 }
 
+Function run-CmdLine {
+    param(
+        [Parameter(Mandatory = $true)] [string] $cmdLine,
+        [Parameter(Mandatory = $true)] [string] $outputVarName
+    )
+    #Reset variable to avoid conflicts
+    Set-Variable -Name $outputVarName -Value $null -Scope Global
+    Invoke-Expression -Command $cmdLine -OutVariable $myResult
+    Set-Variable -Name $outputVarName -Value $myResult -Scope Global
+}
+
 function Get-rType {
     param (
         [Parameter(Mandatory = $true)] [string] $filePath,
@@ -113,38 +127,20 @@ function Get-rType {
     $json = Get-Content -Path $filePath | ConvertFrom-Json -depth 100
     $propertyExists = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty isContainedInOriginalGraphOutput
     if ($propertyExists) {
+        "property found"
         $property = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty property
         Get-Property -object $object -property $property -outputVarName $outputVarName
     }
-    elseif (!$propertyExists) {
-        $global:cmdLine = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty cmdLine
+    elseif ($propertyExists -eq $false) {
+        "no property found"
+        $cmdLine = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty cmdLine
+        run-CmdLine -cmdLine $cmdLine -outputVarName $outputVarName  
     }
     else {
-        $global:property = "N/A"
-    }
+        "$resourceType resource type not found"
+        Set-Variable -Name $outputVarName -Value "N/A" -Scope Global
+   }
 
-}
-
-Function Get-Data {
-    Param(
-        [Parameter(Mandatory = $true)] [string] $outputVarName,
-        [Parameter(Mandatory = $false)][ValidateSet('pairedRegionFeature', 'AzSupport', 'Size', "IPandDNS")] [string] $flagType
-    )
-
-    if ($global:property -ne "N/A" -and $Global:property) {
-        "IP/DNS"
-        $global:property
-        Get-Property -object $PSItem -property $global:property -outputVarName "ipAddress"
-    }
-    elseif ($global:cmdLine) {
-        "CMDLINE"
-        "$global:cmdLine"
-        Invoke-Expression -Command $global:cmdLine -OutVariable ipAddress
-        $ipAddress
-    }
-    else {
-        $ipAddress = "N/A"
-    }
 }
 
 Function Get-Method {
@@ -209,5 +205,7 @@ $baseResult | ForEach-Object {
         ipAddress              = $ipAddress
     }
     $outputArray += $outObject
+    "here"
+    #start-sleep 10
 }
 $outputArray | ConvertTo-Json -Depth 100 | Out-File -FilePath $outputFile
