@@ -1,8 +1,0 @@
-[
-  {
-    "resourceType": "microsoft.Network/publicipaddresses",
-    "description": "Get AZ configuration for a public IP address",
-    "property": "zones",
-    "isContainedInOriginalGraphOutput": true
-  }
-]
