@@ -112,8 +112,12 @@ Function run-CmdLine {
     )
     #Reset variable to avoid conflicts
     Set-Variable -Name $outputVarName -Value $null -Scope Global
-    Invoke-Expression -Command $cmdLine -OutVariable $myResult
-    Set-Variable -Name $outputVarName -Value $myResult -Scope Global
+    $cmdResult = Invoke-Expression -Command $cmdLine
+    # if result is a number linmit to 2 decimal places
+    if ($cmdResult -is [int] -or $cmdResult -is [double]) {
+        $cmdResult = "{0:N2}" -f $cmdResult
+    }
+    Set-Variable -Name $outputVarName -Value $cmdResult -Scope Global
 }
 
 function Get-rType {
@@ -126,17 +130,17 @@ function Get-rType {
     $json = Get-Content -Path $filePath | ConvertFrom-Json -depth 100
     $propertyExists = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty isContainedInOriginalGraphOutput
     if ($propertyExists) {
-        "Property for $outputVarName for $resourceType indicated in $filePath"
+        #"Property for $outputVarName for $resourceType indicated in $filePath"
         $property = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty property
         Get-Property -object $object -property $property -outputVarName $outputVarName
     }
     elseif ($propertyExists -eq $false) {
-        "Property for $outputVarName for $resourceType not indicated in $filePath, try to get cmdLine"
+        #"Property for $outputVarName for $resourceType not indicated in $filePath, try to get cmdLine"
         $cmdLine = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty cmdLine
         run-CmdLine -cmdLine $cmdLine -outputVarName $outputVarName  
     }
     else {
-        "Neither property nor cmdline for $outputVarName for $resourceType is indicated in $filepath"
+        #"Neither property nor cmdline for $outputVarName for $resourceType is indicated in $filepath"
         Set-Variable -Name $outputVarName -Value "N/A" -Scope Global
     }
 
@@ -188,10 +192,15 @@ $baseResult | ForEach-Object {
     $resourceSubscriptionId = $PSItem.subscriptionId
     $resourceID = $PSItem.id
     $resourceZones = $PSItem.zones
+    if($PSItem.sku -ne $null) {
+        $sku = $PSItem.sku
+    }
+    else {
+        Get-Method -resourceType $resourceType -flagType "Sku" -object $PSItem
+    }
     Get-Method -resourceType $resourceType -flagType "storageReplication" -object $PSItem
     Get-Method -resourceType $resourceType -flagType "dataSize" -object $PSItem
     Get-Method -resourceType $resourceType -flagType "ipConfig" -object $PSItem
-    Get-Method -resourceType $resourceType -flagType "Sku" -object $PSItem
     $outObject = [PSCustomObject] @{
         ResourceType           = $resourceType
         ResourceName           = $resourceName

@@ -1,5 +1,4 @@
 [
-  // may want to change to replication configuration rather than pairedregionsupport
   {
     "resourceType": "microsoft.storage/storageaccounts",
     "description": "Get paired region support (GRS/RA-GRS) for a storage account",
@@ -23,5 +22,13 @@
     "property": "sku.name",
     "description": "Get replication and SKU for a managed disk",
     "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.sql/servers/databases",
+    "property": "properties.requestedBackupStorageRedundancy",
+    "description": "Get replication configuration for SQL database backup",
+    "isContainedInOriginalGraphOutput": true
   }
+
+  
 ]
