@@ -56,7 +56,7 @@
 
 .NOTES
     - Requires Azure PowerShell module to be installed and authenticated.
-    - Ensure the JSON configuration files (e.g., prsupport.json, azsupport.json) are present in the "modules" directory.
+    - Ensure the JSON configuration files (e.g., dataReplication.json, dataSize.json etc) are present in the "modules" directory.
     - Handles pagination for large datasets returned by Azure Resource Graph queries.
 #>
 
@@ -91,16 +91,33 @@ Function Get-Property {
         [Parameter(Mandatory = $true)] [string] $property,
         [Parameter(Mandatory = $true)] [string] $outputVarName
     )
+    #Reset variable to avoid conflicts
+    Set-Variable -Name $outputVarName -Value $null -Scope Global
+    Set-Variable -Name $outputVarName -Value $object -Scope Global
     If ($property -match "\.+") {
         foreach ($part in $property -split '\.') {
             $object = $object.$part
-            $object
         }
     }
     else {
         $object = $object.$property
     }
     Set-Variable -Name $outputVarName -Value $object -Scope Global
+}
+
+Function run-CmdLine {
+    param(
+        [Parameter(Mandatory = $true)] [string] $cmdLine,
+        [Parameter(Mandatory = $true)] [string] $outputVarName
+    )
+    #Reset variable to avoid conflicts
+    Set-Variable -Name $outputVarName -Value $null -Scope Global
+    $cmdResult = Invoke-Expression -Command $cmdLine
+    # if result is a number linmit to 2 decimal places
+    if ($cmdResult -is [int] -or $cmdResult -is [double]) {
+        $cmdResult = "{0:N2}" -f $cmdResult
+    }
+    Set-Variable -Name $outputVarName -Value $cmdResult -Scope Global
 }
 
 function Get-rType {
@@ -113,51 +130,33 @@ function Get-rType {
     $json = Get-Content -Path $filePath | ConvertFrom-Json -depth 100
     $propertyExists = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty isContainedInOriginalGraphOutput
     if ($propertyExists) {
+        #"Property for $outputVarName for $resourceType indicated in $filePath"
         $property = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty property
         Get-Property -object $object -property $property -outputVarName $outputVarName
     }
-    elseif (!$propertyExists) {
-        $global:cmdLine = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty cmdLine
+    elseif ($propertyExists -eq $false) {
+        #"Property for $outputVarName for $resourceType not indicated in $filePath, try to get cmdLine"
+        $cmdLine = $json | Where-Object { $psItem.resourceType -eq $resourceType } | Select-Object -ExpandProperty cmdLine
+        run-CmdLine -cmdLine $cmdLine -outputVarName $outputVarName  
     }
     else {
-        $global:property = "N/A"
+        #"Neither property nor cmdline for $outputVarName for $resourceType is indicated in $filepath"
+        Set-Variable -Name $outputVarName -Value "N/A" -Scope Global
     }
 
-}
-
-Function Get-Data {
-    Param(
-        [Parameter(Mandatory = $true)] [string] $outputVarName,
-        [Parameter(Mandatory = $false)][ValidateSet('pairedRegionFeature', 'AzSupport', 'Size', "IPandDNS")] [string] $flagType
-    )
-
-    if ($global:property -ne "N/A" -and $Global:property) {
-        "IP/DNS"
-        $global:property
-        Get-Property -object $PSItem -property $global:property -outputVarName "ipAddress"
-    }
-    elseif ($global:cmdLine) {
-        "CMDLINE"
-        "$global:cmdLine"
-        Invoke-Expression -Command $global:cmdLine -OutVariable ipAddress
-        $ipAddress
-    }
-    else {
-        $ipAddress = "N/A"
-    }
 }
 
 Function Get-Method {
     Param(
         [Parameter(Mandatory = $true)] [string] $resourceType,
-        [Parameter(Mandatory = $true)][ValidateSet('pairedRegionFeature', 'AzSupport', 'Size', "IPandDNS")] [string] $flagType,
+        [Parameter(Mandatory = $true)][ValidateSet('storageReplication', 'dataSize', "ipConfig", "Sku")] [string] $flagType,
         [Parameter(Mandatory = $true)] [pscustomobject] $object
     )
     switch ($flagType) {
-        'pairedRegionFeature' { Get-rType -filePath .\modules\prsupport.json -object $object -outputVarName "pairedRegionFeature" -resourceType $resourceType }
-        'AzSupport' { Get-rType -filePath .\modules\azsupport.json -object $object -outputVarName "azSupport" -resourceType $resourceType }
-        'Size' { Get-rType -filePath .\modules\dataSize.json -object $object -outputVarName "dataSize" -resourceType $resourceType }
-        'IPandDNS' { Get-rType -filePath .\modules\IPandDNS.json -object $object -outputVarName "ipAddress" -resourceType $resourceType }
+        'storageReplication' { Get-rType -filePath .\modules\dataReplication.json -object $object -outputVarName "storageReplication" -resourceType $resourceType }
+        'dataSize' { Get-rType -filePath .\modules\dataSize.json -object $object -outputVarName "dataSize" -resourceType $resourceType }
+        'ipConfig' { Get-rType -filePath .\modules\ipConfig.json -object $object -outputVarName "ipAddress" -resourceType $resourceType }
+        'Sku' { Get-rType -filePath .\modules\sku.json -object $object -outputVarName "sku" -resourceType $resourceType }
     }
 }
 
@@ -192,20 +191,26 @@ $baseResult | ForEach-Object {
     $resourceLocation = $PSItem.location
     $resourceSubscriptionId = $PSItem.subscriptionId
     $resourceID = $PSItem.id
-    $resourceName
-    Get-Method -resourceType $resourceType -flagType "pairedRegionFeature" -object $PSItem
-    Get-Method -resourceType $resourceType -flagType "AZSupport" -object $PSItem
-    Get-Method -resourceType $resourceType -flagType "Size" -object $PSItem
-    Get-Method -resourceType $resourceType -flagType "IPandDNS" -object $PSItem
+    $resourceZones = $PSItem.zones
+    if($PSItem.sku -ne $null) {
+        $sku = $PSItem.sku
+    }
+    else {
+        Get-Method -resourceType $resourceType -flagType "Sku" -object $PSItem
+    }
+    Get-Method -resourceType $resourceType -flagType "storageReplication" -object $PSItem
+    Get-Method -resourceType $resourceType -flagType "dataSize" -object $PSItem
+    Get-Method -resourceType $resourceType -flagType "ipConfig" -object $PSItem
     $outObject = [PSCustomObject] @{
         ResourceType           = $resourceType
         ResourceName           = $resourceName
         ResourceLocation       = $resourceLocation
         ResourceSubscriptionId = $resourceSubscriptionId
         ResourceID             = $resourceID
-        pairedRegionFeature    = $pairedRegionFeature
-        AzSupport              = $azSupport
-        dataSize               = $dataSize
+        ResourceSku            = $sku
+        ResourceZones          = $resourceZones
+        storageReplication     = $storageReplication
+        dataSizeGB             = $dataSize
         ipAddress              = $ipAddress
     }
     $outputArray += $outObject

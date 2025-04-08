@@ -1,0 +1,34 @@
+[
+  {
+    "resourceType": "microsoft.storage/storageaccounts",
+    "description": "Get paired region support (GRS/RA-GRS) for a storage account",
+    "property": "sku.name",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.dataprotection/backupvaults",
+    "description": "Get paired region support (GeoRedundant) for a backup vault",
+    "property": "properties.storageSettings.type",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.recoveryservices/vaults",
+    "description": "Get paired region support (GeoRedundant) for a recovery services vault",
+    "property": "properties.redundancySettings.standardTierStorageRedundancy",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.Compute/disks",
+    "property": "sku.name",
+    "description": "Get replication and SKU for a managed disk",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.sql/servers/databases",
+    "property": "properties.requestedBackupStorageRedundancy",
+    "description": "Get replication configuration for SQL database backup",
+    "isContainedInOriginalGraphOutput": true
+  }
+
+  
+]
