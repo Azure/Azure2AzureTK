@@ -64,7 +64,7 @@
 param(
     [Parameter(Mandatory = $false)] [ValidateSet('singleSubscription', 'resourceGroup', 'multiSubscription')] [string] $scopeType = 'singleSubscription', # scope type to run the query against
     [Parameter(Mandatory = $false)] [string] $subscriptionId, # Subscription ID to run the query against
-    [Parameter(Mandatory = $false)] [string] $resourceGroupName, # Subscription ID to run the query against
+    [Parameter(Mandatory = $false)] [string] $resourceGroupName, # resource group to run the query against
     [Parameter(Mandatory = $false)] [string] $workloadFile, # JSON file containing subscriptions
     [Parameter(Mandatory = $false)] [string] $outputFile = "resources.json" # Excel file to export the results to
 )
