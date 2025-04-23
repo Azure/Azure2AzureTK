@@ -1,10 +1,4 @@
 [
-  // {
-  //   "resourceType": "microsoft.storage/storageaccounts",
-  //   "property": "sku",
-  //   "description": "Get sku for a storage account",
-  //   "isContainedInOriginalGraphOutput": true
-  // },
   {
     "resourceType": "microsoft.Compute/disks",
     "property": "properties.tier",
@@ -13,22 +7,21 @@
   },
   {
     "resourceType": "microsoft.compute/virtualmachines",
-    "property": "properties.hardwareProfile.vmSize",
+    "property": "properties.hardwareProfile",
     "description": "Get sku for a VM",
     "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.network/applicationgateways",
+    "property": "properties.sku",
+    "description": "Get sku for an Azure Application Gateway",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.keyvault/vaults",
+    "property": "properties.sku",
+    "description": "Get sku for an Azure Key Vault",
+    "isContainedInOriginalGraphOutput": true
   }
-  // ,
-  // {
-  //   "resourceType": "microsoft.keyvault/vaults",
-  //   "property": "properties.sku",
-  //   "description": "Get sku for a key vault",
-  //   "isContainedInOriginalGraphOutput": true
-  // },
-  // {
-  //   "resourceType": "microsoft.Network/publicipaddresses",
-  //   "property": "sku",
-  //   "description": "Get sku for a public IP address",
-  //   "isContainedInOriginalGraphOutput": true
-  // }
 ]
 
