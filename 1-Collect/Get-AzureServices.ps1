@@ -64,9 +64,9 @@
 param(
     [Parameter(Mandatory = $false)] [ValidateSet('singleSubscription', 'resourceGroup', 'multiSubscription')] [string] $scopeType = 'singleSubscription', # scope type to run the query against
     [Parameter(Mandatory = $false)] [string] $subscriptionId, # Subscription ID to run the query against
-    [Parameter(Mandatory = $false)] [string] $resourceGroupName, # Subscription ID to run the query against
+    [Parameter(Mandatory = $false)] [string] $resourceGroupName, # resource group to run the query against
     [Parameter(Mandatory = $false)] [string] $workloadFile, # JSON file containing subscriptions
-    [Parameter(Mandatory = $false)] [string] $outputFile = "test.json" # Excel file to export the results to
+    [Parameter(Mandatory = $false)] [string] $outputFile = "resources.json" # Excel file to export the results to
 )
 
 Function Get-SingleSubscriptionData {
@@ -192,7 +192,7 @@ $baseResult | ForEach-Object {
     $resourceSubscriptionId = $PSItem.subscriptionId
     $resourceID = $PSItem.id
     $resourceZones = $PSItem.zones
-    if($PSItem.sku -ne $null) {
+    if ($PSItem.sku -ne $null) {
         $sku = $PSItem.sku
     }
     else {
@@ -216,3 +216,18 @@ $baseResult | ForEach-Object {
     $outputArray += $outObject
 }
 $outputArray | ConvertTo-Json -Depth 100 | Out-File -FilePath $outputFile
+$groupedResources = $outputArray | Group-Object -Property ResourceType
+$summary = @()
+foreach ($group in $groupedResources) {                     
+    $resourceType = $group.Name
+    If ($group.Group.ResourceSku -ne 'N/A') {
+        $resourceType
+        $uniqueSkus = $group.Group.ResourceSku | Select-Object * -Unique
+        $summary += [PSCustomObject]@{ResourceCount = $group.Count; ResourceType = $resourceType; ResourceSkus = $uniqueSkus }
+    }
+    Else {
+
+        $summary += [PSCustomObject]@{ResourceCount = $group.Count; ResourceType = $resourceType; ResourceSkus = "N/A" }
+    }
+}
+$summary | ConvertTo-Json -Depth 100 | Out-File -FilePath "summary.json"

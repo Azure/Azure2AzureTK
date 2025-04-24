@@ -1,0 +1,27 @@
+[
+  {
+    "resourceType": "microsoft.Compute/disks",
+    "property": "properties.tier",
+    "description": "Get sku for a managed disk",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.compute/virtualmachines",
+    "property": "properties.hardwareProfile",
+    "description": "Get sku for a VM",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.network/applicationgateways",
+    "property": "properties.sku",
+    "description": "Get sku for an Azure Application Gateway",
+    "isContainedInOriginalGraphOutput": true
+  },
+  {
+    "resourceType": "microsoft.keyvault/vaults",
+    "property": "properties.sku",
+    "description": "Get sku for an Azure Key Vault",
+    "isContainedInOriginalGraphOutput": true
+  }
+]
+
