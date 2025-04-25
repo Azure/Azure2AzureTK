@@ -20,7 +20,7 @@
     - Requires Azure PowerShell module to be installed and authenticated.
 #>
 
-cls
+clear-host
 # Retrieving namespaces and resource types
 Write-Host "Retrieving all available namespaces and resource types" -ForegroundColor Yellow
 $Overview = az provider list --query "[].{Namespace:namespace, ResourceTypes:resourceTypes[].{Type:resourceType, Locations:locations}}" -o json | ConvertFrom-Json
@@ -80,11 +80,11 @@ Write-Host ""
 
 # Filter resource types with locations
 Write-Host "Working on VM SKUs" -ForegroundColor Yellow
-Write-Host "Filtering for resource types with location(s)" -ForegroundColor Green
-$FilteredOverview = $Overview | ForEach-Object {
-    $_.ResourceTypes = $_.ResourceTypes | Where-Object { $_.Locations.Count -gt 0 }
-    $_
-}
+#Write-Host "Filtering for resource types with location(s)" -ForegroundColor Green
+#$FilteredOverview = $Overview | ForEach-Object {
+#    $_.ResourceTypes = $_.ResourceTypes | Where-Object { $_.Locations.Count -gt 0 }
+#    $_
+#}
 
 # Dynamically retrieve regions from Microsoft.Compute
 Write-Host "Retrieving available regions from Microsoft.Compute" -ForegroundColor Green
