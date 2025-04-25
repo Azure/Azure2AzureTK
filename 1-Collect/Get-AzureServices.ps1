@@ -22,7 +22,7 @@
 .PARAMETER outputFile
     The name of the output file where the results will be exported. Default is "test.json".
 
-.FUNCTION Get-SingleSubscriptionData
+.FUNCTION Get-SingleData
     Queries Azure Resource Graph for resources within a single subscription and retrieves all results, 
     handling pagination if necessary.
 
@@ -60,7 +60,6 @@
     - Handles pagination for large datasets returned by Azure Resource Graph queries.
 #>
 
-
 param(
     [Parameter(Mandatory = $false)] [ValidateSet('singleSubscription', 'resourceGroup', 'multiSubscription')] [string] $scopeType = 'singleSubscription', # scope type to run the query against
     [Parameter(Mandatory = $false)] [string] $subscriptionId, # Subscription ID to run the query against
@@ -69,11 +68,12 @@ param(
     [Parameter(Mandatory = $false)] [string] $outputFile = "resources.json" # Excel file to export the results to
 )
 
-Function Get-SingleSubscriptionData {
+Function Get-SingleData {
     param(
         [Parameter(Mandatory = $true)] [string] $subscriptionId,
         [Parameter(Mandatory = $true)] [string] $query
     )
+    $query
     $resultSet = @()
     $response = Search-AzGraph -Query $query -Subscription $subscriptionId -First 1000
     $resultSet += $response
@@ -84,6 +84,11 @@ Function Get-SingleSubscriptionData {
     }
     $Global:baseresult = $resultSet
 }
+
+Function Get-MultiLoop {
+
+}
+
 
 Function Get-Property {
     param(
@@ -172,12 +177,17 @@ Switch ($scopeType) {
         else {
             $scope = (Get-AzContext).Subscription.id
         }
-        Get-SingleSubscriptionData -subscriptionId $scope -query $baseQuery
+        Get-SingleData -subscriptionId $scope -query $baseQuery
     }
     'resourceGroup' {
-        $subscriptionId = (Get-AzContext).Subscription.id
-        $scope = "$resourceGroupName"
-        #TBD
+        $baseQuery = "resources | where resourceGroup == '$resourceGroupName'"
+        if ($subscriptionId) {
+            $scope = "$subscriptionId"
+        }
+        else {
+            $scope = (Get-AzContext).Subscription.id
+        }
+        Get-SingleData -subscriptionId $scope -query $baseQuery
     }
     'multiSubscription' {
         #TBD
