@@ -21,34 +21,34 @@
 #>
 
 clear-host
-# Retrieving namespaces and resource types
-Write-Host "Retrieving all available namespaces and resource types" -ForegroundColor Yellow
-$Overview = az provider list --query "[].{Namespace:namespace, ResourceTypes:resourceTypes[].{Type:resourceType, Locations:locations}}" -o json | ConvertFrom-Json
-
-# Save Azure Resources to a JSON file
-Write-Host "Saving namespaces and resource types to file: Azure_Resources.json" -ForegroundColor Green
-$Overview | ConvertTo-Json -Depth 10 | Out-File "$(Get-Location)\Azure_Resources.json"
-Write-Host ""
-
-# Retrieve access token for REST API
+# REST API: Retrieve access token for REST API
 Write-Host "Retrieving access token for REST API" -ForegroundColor Yellow
 $AccessToken = az account get-access-token --query accessToken -o tsv
 $SubscriptionId = az account show --query id -o tsv  # Automatically retrieve the current subscription ID
 $BaseUri = "https://management.azure.com/subscriptions"
 
-# Define headers with the access token
+# REST API: Define headers with the access token
 $Headers = @{
     Authorization = "Bearer $AccessToken"
 }
 Write-Host ""
 
-# Get region information
+# Namespaces and resource types: Start
+Write-Host "Retrieving all available namespaces and resource types" -ForegroundColor Yellow
+$Overview = az provider list --query "[].{Namespace:namespace, ResourceTypes:resourceTypes[].{Type:resourceType, Locations:locations}}" -o json | ConvertFrom-Json
+
+# Namespaces and resource types: Save namespaces and resource types to a JSON file
+Write-Host "Saving namespaces and resource types to file: Azure_Resources.json" -ForegroundColor Green
+$Overview | ConvertTo-Json -Depth 10 | Out-File "$(Get-Location)\Azure_Resources.json"
+Write-Host ""
+
+# Region information: Start
 Write-Host "Working on locations" -ForegroundColor Yellow
 Write-Host "Retrieving locations information" -ForegroundColor Green
 $LocationUri = "$BaseUri/$SubscriptionId/locations?api-version=2022-12-01"
 $LocationResponse = Invoke-RestMethod -Uri $LocationUri -Headers $Headers -Method Get
 
-# Move everything under metadata to the top level to flatten data, and clean up top-level ID and pairedRegion so that the subscription ID used for retrieval is removed
+# Region information: Move everything under metadata to the top level to flatten data, and clean up top-level ID and pairedRegion so that the subscription ID used for retrieval is removed
 Write-Host "Location information flattening and PII deletion" -ForegroundColor Green
 $TotalRegionsFlat = $LocationResponse.value.Count
 $CurrentFlatIndex = 0
@@ -72,34 +72,26 @@ foreach ($region in $LocationResponse.value) {
     $region.PSObject.Properties.Remove("id")
 }
 
-
-# Save regions to a JSON file
+# Region information: Save regions to a JSON file
 Write-Host "Saving regions to file: Azure_Regions.json" -ForegroundColor Green
 $LocationResponse | ConvertTo-Json -Depth 10 | Out-File "$(Get-Location)\Azure_Regions.json"
 Write-Host ""
 
-# Filter resource types with locations
+# VM SKUs: Start
 Write-Host "Working on VM SKUs" -ForegroundColor Yellow
-#Write-Host "Filtering for resource types with location(s)" -ForegroundColor Green
-#$FilteredOverview = $Overview | ForEach-Object {
-#    $_.ResourceTypes = $_.ResourceTypes | Where-Object { $_.Locations.Count -gt 0 }
-#    $_
-#}
 
-# Dynamically retrieve regions from Microsoft.Compute
+# VM SKUs: Dynamically retrieve regions from Microsoft.Compute
 Write-Host "Retrieving available regions from Microsoft.Compute" -ForegroundColor Green
 $ComputeProvider = az provider show --namespace Microsoft.Compute --query "resourceTypes[?resourceType=='virtualMachines'].locations[]" -o tsv
 $Regions = $ComputeProvider -split "`n"  # Split regions into an array for processing
 
-# Add VM sizes using REST API and consolidate locations
-Write-Host "Adding VM SKUs from consolidated locations" -ForegroundColor Green
-$VMResource = @{}
-
-# Track progress
+# VM SKUs: Track progress variables
 $TotalRegions = $Regions.Count
 $CurrentRegionIndex = 0
 
-# Loop through each region and query VM sizes
+# VM SKUs: Loop through each region and query VM sizes
+Write-Host "Adding VM SKUs from consolidated locations" -ForegroundColor Green
+$VMResource = @{}
 foreach ($Region in $Regions) {
     $CurrentRegionIndex++
     Write-Host ("   Retrieving VM SKUs for region {0:D3} of {1:D3}: {2}" -f $CurrentRegionIndex, $TotalRegions, $Region) -ForegroundColor Blue
@@ -130,35 +122,35 @@ foreach ($Region in $Regions) {
     }
 }
 
-# Convert the hash table to an array
+# VM SKUs: Convert the hash table to an array
 $VMResourceArray = $VMResource.Values
 
-# Save VM SKUs to a JSON file
+# VM SKUs: Save VM SKUs to a JSON file
 Write-Host "Saving VM SKUs to file: Azure_SKUs_VM.json" -ForegroundColor Green
 $VMResourceArray | ConvertTo-Json -Depth 10 | Out-File "$(Get-Location)\Azure_SKUs_VM.json"
 Write-Host ""
 
-# Add Storage Account SKUs using REST API
+# Storage Account SKUs: Start
 Write-Host "Working on storage account SKUs" -ForegroundColor Yellow
 Write-Host "Retrieving storage account SKUs" -ForegroundColor Green
 $StorageResource = @()
 
-# REST API Endpoint for Storage SKUs
+# Storage Account SKUs: REST API Endpoint for Storage SKUs
 $StorageUri = "$BaseUri/$SubscriptionId/providers/Microsoft.Storage/skus?api-version=2021-01-01"
 
-# Make REST API call for storage SKUs
+# Storage Account SKUs: REST API call
 $StorageResponse = Invoke-RestMethod -Uri $StorageUri -Headers $Headers -Method Get
 
-# Sort $StorageResponse by single Location BEFORE Processing
+# Storage Account SKUs: Sort $StorageResponse by single Location before Processing
 Write-Host "Sorting storage account SKUs by location" -ForegroundColor Green
 $StorageResponseSorted = $StorageResponse.value | Sort-Object { $_.locations[0] }
 
-# Track progress for distinct storage locations
+# Storage Account SKUs: Track progress for distinct storage locations
 $DistinctLocations = $StorageResponseSorted | ForEach-Object { $_.locations[0] } | Sort-Object | Get-Unique
 $TotalStorageLocations = $DistinctLocations.Count
 $CurrentLocationIndex = 0
 
-# Process the sorted Storage API response
+# Storage Account SKUs: Process the sorted Storage API response
 Write-Host "Adding storage SKUs from consolidated locations" -ForegroundColor Green
 $LastLocation = $null
 $StorageResponseSorted | ForEach-Object {
@@ -199,7 +191,7 @@ $StorageResponseSorted | ForEach-Object {
     }
 }
 
-# Save Storage SKUs to a JSON file
+# Storage Account SKUs: Save Storage SKUs to a JSON file
 Write-Host "Saving Storage SKUs to file: Azure_SKUs_Storage.json" -ForegroundColor Green
 $StorageResource | ConvertTo-Json -Depth 10 | Out-File "$(Get-Location)\Azure_SKUs_Storage.json"
 Write-Host ""
