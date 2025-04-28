@@ -209,6 +209,9 @@ $baseResult | ForEach-Object {
     if ($PSItem.sku -ne $null) {
         $sku = $PSItem.sku
     }
+    elseif ($PSItem.properties.sku -ne $null) {
+        $sku = $PSItem.properties.sku
+    }
     else {
         Get-Method -resourceType $resourceType -flagType "Sku" -object $PSItem
     }
