@@ -82,11 +82,17 @@ Function Get-SingleData {
         $response = Search-AzGraph -Query $query -Subscription $batch.Group -First 1000 -SkipToken $response.SkipToken
         $resultSet += $response
     }
-    $Global:baseresult = $resultSet
+    $Global:baseresult += $resultSet
 }
 
 Function Get-MultiLoop {
+    # Open workload file and get subscription IDs
+    $workloads = Get-Content -Path $workloadFile -raw | ConvertFrom-Json -depth
+    $subscriptionIds = $workloads.Subscriptions
 
+    foreach ($subscription in $workloadFile.subscriptions) {
+        Get-SingleData -subscriptionId $subscription -query "resources"
+    }
 }
 
 
