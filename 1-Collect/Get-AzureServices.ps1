@@ -22,7 +22,7 @@
 .PARAMETER outputFile
     The name of the output file where the results will be exported. Default is "test.json".
 
-.FUNCTION Get-SingleSubscriptionData
+.FUNCTION Get-SingleData
     Queries Azure Resource Graph for resources within a single subscription and retrieves all results, 
     handling pagination if necessary.
 
@@ -60,7 +60,6 @@
     - Handles pagination for large datasets returned by Azure Resource Graph queries.
 #>
 
-
 param(
     [Parameter(Mandatory = $false)] [ValidateSet('singleSubscription', 'resourceGroup', 'multiSubscription')] [string] $scopeType = 'singleSubscription', # scope type to run the query against
     [Parameter(Mandatory = $false)] [string] $subscriptionId, # Subscription ID to run the query against
@@ -69,20 +68,35 @@ param(
     [Parameter(Mandatory = $false)] [string] $outputFile = "resources.json" # Excel file to export the results to
 )
 
-Function Get-SingleSubscriptionData {
+Function Get-SingleData {
     param(
-        [Parameter(Mandatory = $true)] [string] $subscriptionId,
         [Parameter(Mandatory = $true)] [string] $query
     )
     $resultSet = @()
-    $response = Search-AzGraph -Query $query -Subscription $subscriptionId -First 1000
+    $response = Search-AzGraph -Query $query -First 1000
     $resultSet += $response
     # If a skip token is returned, there are more results to fetch
     while ($null -ne $response.SkipToken) {
-        $response = Search-AzGraph -Query $query -Subscription $batch.Group -First 1000 -SkipToken $response.SkipToken
+        $response = Search-AzGraph -Query $query -First 1000 -SkipToken $response.SkipToken
         $resultSet += $response
     }
     $Global:baseresult = $resultSet
+}
+
+Function Get-MultiLoop {
+    param(
+        [Parameter(Mandatory = $true)] [string] $workloadFile
+    )
+    # Open workload file and get subscription IDs
+    $workloads = Get-Content -Path $workloadFile -raw | ConvertFrom-Json
+    $subscriptionIds = $workloads.Subscriptions
+    $tempArray = @()
+    foreach ($subscription in $workloads.subscriptions) {
+        $basequery = "resources | where subscriptionId == '$subscription'"
+        Get-SingleData -query $basequery
+        $tempArray += $Global:baseresult
+    }
+    $Global:baseresult = $tempArray
 }
 
 Function Get-Property {
@@ -141,7 +155,7 @@ function Get-rType {
     }
     else {
         #"Neither property nor cmdline for $outputVarName for $resourceType is indicated in $filepath"
-        Set-Variable -Name $outputVarName -Value "N/A" -Scope Global
+        Set-Variable -Name $outputVarName -Value "N/A" -Scope Script
     }
 
 }
@@ -166,23 +180,23 @@ $outputArray = @()
 Switch ($scopeType) {
     'singleSubscription' {
         $baseQuery = "resources"
-        if ($subscriptionId) {
-            $scope = "$subscriptionId"
+        if (!$subscriptionId) {
+            $subscriptionId = (Get-AzContext).Subscription.id
         }
-        else {
-            $scope = (Get-AzContext).Subscription.id
-        }
-        Get-SingleSubscriptionData -subscriptionId $scope -query $baseQuery
+        $baseQuery = "resources | where subscriptionId == '$subscriptionId'"
+        Get-SingleData -query $baseQuery
     }
     'resourceGroup' {
-        $subscriptionId = (Get-AzContext).Subscription.id
-        $scope = "$resourceGroupName"
-        #TBD
+        # KQL Query to get all resources in a specific resource group and subscription
+        if (!$subscriptionId) {
+            $subscriptionId = (Get-AzContext).Subscription.id
+        }
+        $baseQuery = "resources | where resourceGroup == '$resourceGroupName' and subscriptionId == '$subscriptionId'"
+        Get-SingleData -query $baseQuery
     }
     'multiSubscription' {
-        #TBD
-        $scope = "/subscriptions"
-        #Leverage code found in graph_query.ps1
+        "multiple subscriptions"
+        Get-MultiLoop -workloadFile $workloadFile
     }
 }
 $baseResult | ForEach-Object {
@@ -194,6 +208,9 @@ $baseResult | ForEach-Object {
     $resourceZones = $PSItem.zones
     if ($PSItem.sku -ne $null) {
         $sku = $PSItem.sku
+    }
+    elseif ($PSItem.properties.sku -ne $null) {
+        $sku = $PSItem.properties.sku
     }
     else {
         Get-Method -resourceType $resourceType -flagType "Sku" -object $PSItem
@@ -220,14 +237,17 @@ $groupedResources = $outputArray | Group-Object -Property ResourceType
 $summary = @()
 foreach ($group in $groupedResources) {                     
     $resourceType = $group.Name
+    $uniqueLocations = $group.Group | Select-Object -Property ResourceLocation -Unique | Select-Object -ExpandProperty ResourceLocation
+    if ($uniqueLocations -isnot [System.Array]) {
+        $uniqueLocations = @($uniqueLocations)
+    }
     If ($group.Group.ResourceSku -ne 'N/A') {
-        $resourceType
+
         $uniqueSkus = $group.Group.ResourceSku | Select-Object * -Unique
-        $summary += [PSCustomObject]@{ResourceCount = $group.Count; ResourceType = $resourceType; ResourceSkus = $uniqueSkus }
+        $summary += [PSCustomObject]@{ResourceCount = $group.Count; ResourceType = $resourceType; ResourceSkus = $uniqueSkus; AzureRegions = $uniqueLocations }
     }
     Else {
-
-        $summary += [PSCustomObject]@{ResourceCount = $group.Count; ResourceType = $resourceType; ResourceSkus = "N/A" }
+        $summary += [PSCustomObject]@{ResourceCount = $group.Count; ResourceType = $resourceType; ResourceSkus = @("N/A"); AzureRegions = $uniqueLocations }
     }
 }
 $summary | ConvertTo-Json -Depth 100 | Out-File -FilePath "summary.json"
