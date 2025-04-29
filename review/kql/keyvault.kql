@@ -1,8 +1,0 @@
-/////////////////////////////////////
-// Key Vault
-/////////////////////////////////////
-
-// Key vaults and redundancy settings
-resources
-| where type =~ 'microsoft.keyvault/vaults'
-| project subscriptionId, resourceGroup, name, location, sku = properties.sku.name
