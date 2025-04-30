@@ -4,7 +4,7 @@ fixme
 ## Navigation
 
 - [Wiki Home](./Home)
-- [Introduction to deploying Oracle](./Introduction-to-azure2azure-migration-toolkit)
+- [Introduction to Azure 2 Azure Migration Toolkit](./Introduction-to-azure2azure-migration-toolkit)
 - [Frequently Asked Questions](./FAQ)
 - [Contributing](./Contributing)
 - [Known Issues](./KnownIssues)
