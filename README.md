@@ -2,7 +2,7 @@
 
 Welcome to the Azure to Azure Migration Toolkit repository! This toolkit is intended to facilitate migration of workloads between Azure regions. The initiative is based on the documentation provided in the [Move across regions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/relocate-index) articles, which outline the process end to end, albeit with a lot of manual activities involved. The goal of this toolkit is to automate as much of the process as possible, making it easier for customers to migrate their workloads.
 
-# Disclaimer
+## Disclaimer
 
 Please note that the tooling in this GitHub repository is currently in development and may be subject to frequent changes and updates. This means that the functionality and features of the tooling may change without notice. As such, you are advised to ensure that it is tested thoroughly in a test environment before considering moving to production.
 
