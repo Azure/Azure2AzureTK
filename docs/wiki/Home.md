@@ -1,6 +1,7 @@
-# Welcome to the Azure 2 Azure Migration toolkit wiki
+# Welcome to the Azure to Azure migration toolkit wiki!
 
-fixme
+This wiki documents the current situation during the development of the Azure to Azure migration toolkit.
+
 ## Navigation
 
 - [Wiki Home](./Home)

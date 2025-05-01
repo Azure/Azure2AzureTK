@@ -1,3 +1,3 @@
 # Frequently Asked Questions
 
-fixme
+Currently, there are no frequently asked questions.
