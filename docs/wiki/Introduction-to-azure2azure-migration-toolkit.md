@@ -28,7 +28,7 @@ The repo at present contains code and details for the following:
 - Navigate to the `1-Collect` directory.
 - Logon to Azure with an account that has the required permissions to collect the inventory using `Connect-AzAccount`.
 - Run the script `Get-AzureServices.ps1` to collect the Azure resource inventory and properties, for yor relevant scope (resource group, subscription or multiple subscriptions). The script will generate a resources.json and a summary.json file in the same directory. The resources.json file contains the full inventory of resources and their properties, while the summary.json file contains a summary of the resources collected. For examples on how to run the script for different scopes please see 1-Collect scope examples - [1-Collect Scope Examples](#1-collect-scope-examples) below.
-- After collecting the inventory, you can use the `2-AvailabilityCheck/Get-AvailabilityInformation.ps1` script to check the availability of the services in the target region. This script will generate a services.json file in the same directory, which contains the availability information for the services in the target region. Note that this functionality is not yet complete and is a work in progress. The script will prompt you for the target region for the migration.
+- After collecting the inventory, the intent is that you can use the `2-AvailabilityCheck/Get-AvailabilityInformation.ps1` script to check the availability of the services in the target region. This script will generate a services.json file in the same directory, which contains the availability information for the services in the target region. Note that this functionality is not yet complete and is a work in progress.
 
 ## 1-Collect Scope Examples
 
