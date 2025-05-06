@@ -9,7 +9,6 @@
   - [Recommended Tooling](#recommended-tooling)
 - [Formatting Guidelines](#formatting-guidelines)
   - [Code Styling](#code-styling)
-  - [Resource API Versions](#resource-api-versions)
 - [Git Information on Contributing](#git-information-on-contributing)
 
 ---
@@ -37,8 +36,7 @@ To contribute to this project the following tooling is required:
 
 The following tooling/extensions are recommended to assist you developing for the project:
 
-- [ARM Tools extension for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=msazurermtools.azurerm-vscode-tools)
-- [ARM Template Viewer extension for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=bencoleman.armview)
+- [PowerShell Extension for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-vscode.PowerShell)
 - [EditorConfig for VS Code](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
 - For visibility of Bracket Pairs:
   - Inside Visual Studio Code, add `"editor.bracketPairColorization.enabled": true` to your `settings.json`, to enable bracket pair colorization.
@@ -50,18 +48,7 @@ The below guidelines should be adhered to whilst contributing to this projects c
 ## Code Styling
 
 - Strict `camelCasing` must be used for all elements:
-  - Symbolic names for:
-    - Parameters
-    - Variables
-    - Resource
-    - Modules
-    - Outputs
-- All parameters should have a **useful** description
 - If relevant parameters should have a default value set.
-
-### Resource API Versions
-
-Each resource must use the latest available, working, API version. If the latest API version cannot be used for any reason, a comment must be placed above the resource in the module file stating why and also called out as part of the PR.
 
 ## Git Information on Contributing
 
