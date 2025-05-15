@@ -1,0 +1,57 @@
+{
+
+  "ResourceCount": 547,
+
+  "ResourceType": "microsoft.compute/virtualmachines",
+
+  "ResourceSkus": [
+
+   {
+
+    "name": "Premium_LRS",
+
+    "tier": "Premium"
+
+   },
+
+   {
+
+    "name": "Standard_LRS",
+
+    "tier": "Standard"
+
+   },
+
+   {
+
+    "Length": 3
+
+   },
+
+   {
+
+    "name": "Standard_ZRS",
+
+    "tier": "Standard"
+
+   },
+
+   {
+
+    "name": "StandardSSD_LRS",
+
+    "tier": "Standard"
+
+   }
+
+  ],
+
+  "AzureRegions": [
+
+   "southeastasia",
+
+   "eastasia"
+
+  ]
+
+ }
