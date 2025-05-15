@@ -3,14 +3,14 @@
     Exports Azure resource availability comparison between regions to Excel or CSV.
 
 .DESCRIPTION
-    This script reads the output from Get-AvailabilityInformation.ps1,
-    structures it, and exports to an Excel or CSV file for review.
+    Reads the output from Get-AvailabilityInformation.ps1, structures it, and
+    exports to an Excel or CSV file, including SKU details.
 
 .PARAMETER InputPath
     Path to the JSON or CSV file containing availability information.
 
 .PARAMETER OutputPath
-    Path where the report should be saved.
+    Path where the report should be saved (without extension).
 
 .PARAMETER ExportExcel
     If specified, exports to .xlsx (requires ImportExcel module), otherwise .csv.
@@ -40,10 +40,11 @@ try {
     exit 1
 }
 
-# Optional: Format or validate data
+# Format data for export (include SKU if it exists)
 $formattedData = $data | Select-Object `
     ResourceName, `
     ResourceType, `
+    Sku, `
     OriginRegion, `
     TargetRegion, `
     IsAvailableInTargetRegion
