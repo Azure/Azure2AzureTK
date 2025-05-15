@@ -1,8 +1,5 @@
 ## Export Script
 
-This script is intended to generate the report based on the output from previous script check into a formatted Excel or CSV report. 
-The script will produce a report containing information about all services in scope, Origin Region and target region of each services, and the flag of services availability in the target region.
-
 This script generates a formatted Excel or CSV report based on the output from the previous check script. The report includes detailed information for each service, such as:
 * Resource name and type
 * SKU (if available)
