@@ -62,40 +62,24 @@ function Out-JSONFile {
 
 function Write-Headline {
     param (
-    [Parameter(Mandatory = $true)]
-    [object]$Text
+        [Parameter(Mandatory = $true)]
+        [object]$Text
     )
     Write-Output "####################################################################################################"
     Write-Output "   $Text"
     Write-Output "####################################################################################################"
     Write-Output ""
 }
-function Initialize-RESTAPI {
-    # This function retrieves the access token and subscription ID, and sets up the URI and headers for REST API calls.
-    Write-Output "Initializing REST API" | Out-Host
-    Write-Output "  Retrieving access token and subscription ID" | Out-Host
-    # Retrieve the access token as a secure string and convert it to a regular string
-    $SecureAccessToken = Get-AzAccessToken -AsSecureString
-    $AccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureAccessToken.Token))
-    # Retrieve the subscription ID from the current Azure context
-    $SubscriptionId = (Get-AzContext).Subscription.Id
-    Write-Output "    Access token and Subscription ID successfully retrieved" | Out-Host
-    Write-Output "    Subscription ID: $SubscriptionId" | Out-Host
-    Write-Output "  Setting up BaseUri and headers" | Out-Host
-    # Set up the headers for the REST API calls
-    $Headers = @{
-        Authorization = "Bearer $AccessToken"
-    }
-    return @{
-        Headers = $Headers
-        Uri = "https://management.azure.com/subscriptions/$SubscriptionId"
-    }
-}
+
 
 function Import-Provider {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$uriRoot
+    )
     # This function retrieves all available Azure providers and their resource types, including locations.
     Write-Output "Retrieving all available provider" | Out-Host
-    $Response = Invoke-RestMethod -Uri "$($RESTAPI.Uri)/providers?api-version=2021-04-01" -Headers $RESTAPI.Headers -Method Get
+    $Response = (Invoke-AzRestMethod -Uri "$uriRoot/providers?api-version=2021-04-01" -Method Get).Content | ConvertFrom-Json -depth 100
     # Transform the response to the desired structure and remove unwanted properties
     $Providers = foreach ($provider in $Response.value) {
         # Build an array of resource types using plain hashtables
@@ -121,9 +105,8 @@ function Import-Provider {
 
 function Import-Region {
     # This function retrieves all Azure regions, sorts them alphabetically, flattens metadata to the top level, and removes PII information.
-    Write-Output "Working on regions" | Out-Host
     Write-Output "  Retrieving regions information" | Out-Host
-    $Response = Invoke-RestMethod -Uri "$($RESTAPI.Uri)/locations?api-version=2022-12-01" -Headers $RESTAPI.Headers -Method Get
+    $Response = (Invoke-AzRestMethod -Uri "$uriRoot/locations?api-version=2022-12-01" -Method Get).Content | ConvertFrom-Json -depth 100
     # Sort regions alphabetically by displayName
     Write-Output "  Sorting regions" | Out-Host
     $Response.value = $Response.value | Sort-Object displayName
@@ -132,10 +115,13 @@ function Import-Region {
     $ConsolidatedRegions = @()
     $TotalRegions = $Response.value.Count
     $CurrentRegionIndex = 0
-    foreach ($Region in $Response.value) {
+    foreach ($Region in $Response.value | where { $_.metadata.regionType -eq "Physical" }) {
+        #Write-Output "$($region.name) is regionType: $($region.metadata.regionType)" | out-host}
+
         $CurrentRegionIndex++
         Write-Output ("    Removing information for region {0:D03} of {1:D03}: {2}" -f $CurrentRegionIndex, $TotalRegions, $Region.displayName) | Out-Host
-        if ($Region.metadata) {
+        if ($Region.metadata ) {
+            $region.metadata.regionType -eq "Physical"
             # Remove subscription ID from pairedRegion and just keep the region name
             if ($Region.metadata.pairedRegion) {
                 $Region.metadata.pairedRegion = $Region.metadata.pairedRegion | ForEach-Object { $_.name }
@@ -152,23 +138,27 @@ function Import-Region {
     $Response.value = $ConsolidatedRegions
     # Create a mapping of region names to display names, this will be used later to replace region names with display names.
     $RegionMap = @{}
+    $shortList = @()
     foreach ($Location in $Response.value) {
         $RegionMap[$Location.name] = $Location.displayName
+        $shortlist += $location.name
     }
 
     # Save regions to a JSON file
-    Out-JSONFile -Data $Response -fileName "Azure_Regions.json"
+    #Out-JSONFile -Data $Response -fileName "Azure_Regions.json"
     return @{
         Regions = $Response
         Map     = $RegionMap
+        ShortList = $shortList
     }
 }
+$Regions_All = Import-Region
 
 function Import-SKU-VM {
     # This function retrieves all available VM SKUs across Azure regions and consolidates them.
     Write-Output "Working on VM SKUs" | Out-Host
     Write-Output "  Retrieving VM SKU regions information" | Out-Host
-    $Response = Invoke-RestMethod -Uri "$($RESTAPI.Uri)/providers/Microsoft.Compute?api-version=2025-03-01" -Headers $RESTAPI.Headers -Method Get
+    $Response = (Invoke-AzRestMethod -Uri "$uriRoot/providers/Microsoft.Compute?api-version=2025-03-01" -Method Get).Content | ConvertFrom-Json -depth 100
     # Filter for the resource type "virtualMachines" and extract its locations array
     $Regions = ($Response.resourceTypes | Where-Object { $_.resourceType -eq "virtualMachines" }).locations | Sort-Object
     # Retrieve SKU information for every region where VM SKUs are available
@@ -180,7 +170,7 @@ function Import-SKU-VM {
         $CurrentRegionIndex++
         Write-Output ("    Retrieving VM SKUs for region {0:D03} of {1:D03}: {2}" -f $CurrentRegionIndex, $TotalRegions, $Region) | Out-Host
         # REST API endpoint for VM SKUs
-        $Response2 = Invoke-RestMethod -Uri "$($RESTAPI.Uri)/providers/Microsoft.Compute/locations/$Region/vmSizes?api-version=2024-07-01" -Headers $RESTAPI.Headers -Method Get
+        $Response2 = (Invoke-AzRestMethod -Uri "$uriRoot/providers/Microsoft.Compute/locations/$Region/vmSizes?api-version=2024-07-01" -Method Get).Content | ConvertFrom-Json -depth 100
         # Process the API response
         foreach ($size in $Response2.value) {
             if (-not $ConsolidatedSKUs.ContainsKey($size.name)) {
@@ -190,7 +180,8 @@ function Import-SKU-VM {
                     NumberOfCores = $size.numberOfCores
                     MemoryInMB    = $size.memoryInMB
                 }
-            } else {
+            }
+            else {
                 # Add the region to the existing size's locations, ensuring no duplicates
                 if (-not ($ConsolidatedSKUs[$size.name].Locations -contains $Region)) {
                     $ConsolidatedSKUs[$size.name].Locations += $Region
@@ -203,9 +194,179 @@ function Import-SKU-VM {
     # Save VM SKUs to a JSON file
     Out-JSONFile -Data $SKUs -fileName "Azure_SKUs_VM.json"
     return @{
-    Data = $SKUs
+        Data = $SKUs
     }
 }
+
+function Get-AllProperty {
+    param(
+        [Parameter(Mandatory)][object]$Node,
+        [Parameter(Mandatory)][string]$PropertyName
+    )
+    $results = @()
+    # If this node has the property, collect it
+    if ($null -ne $Node.$PropertyName) {
+        $results += $Node.$PropertyName
+    }
+    # Traverse child objects/arrays
+    foreach ($prop in $Node.PSObject.Properties.Value) {
+        if ($prop -is [System.Collections.IEnumerable] -and -not ($prop -is [string])) {
+            foreach ($item in $prop) {
+                $results += Get-AllProperty -Node $item -PropertyName $PropertyName
+            }
+        }
+        elseif ($prop -is [psobject]) {
+            $results += Get-AllProperty -Node $prop -PropertyName $PropertyName
+        }
+    }
+    return $results
+}
+
+function Expand-NestedCollection {
+    param(
+        [Parameter(Mandatory)][Object[]]$InputObjects,
+        [Parameter(Mandatory)][pscustomobject]$Schema
+    )
+    "expandnestedcollection"
+    $skus = @()
+    $InputObjects | ForEach-Object {
+        # Navigate down to the parent
+        $parentObj = $PSItem
+        for ($i = 0; $i -lt $Schema.startPath.Count; $i++) {
+            $parentObj = $parentObj.$($Schema.startPath[$i])
+        }
+        foreach ($o in $parentObj) {
+            $parentProps = @{}
+            # get specific properties based on $schema.topLevelProperties
+            foreach ($key in $Schema.TopLevelProperties.PSObject.Properties.Name) {
+                $sourceProp = $Schema.TopLevelProperties.$key
+                $value = $o.$sourceProp
+                $parentProps[$key] = $value
+            }
+            # $Schema has a childProperties object
+            if ($Schema.ChildProperties) {
+                # Get $o sub property object based on $schema.childProperties.name
+                $children = $o.$($Schema.ChildProperties.name)
+                # get specific properties from child object based on $schema.childProperties.props and add to $props
+                foreach ($child in $children) {
+                    $props = $parentProps
+                    foreach ($key in $Schema.ChildProperties.props.PSObject.Properties.Name) {
+                        $sourceProp = $Schema.ChildProperties.props.$key
+                        $value = $child.$sourceProp
+                        $props[$key] = $value
+                    }
+                    # add to skus array
+                    $skus += $props
+                }
+            }
+            else {
+                $skus += $parentProps
+            }
+        }
+        Set-Variable -name SKUs -Value $skus -scope Script
+    }
+}
+
+
+
+
+Function Get-PropertyMap {
+    param ($propertyFilter, $sku, $regionName)
+    $obj = @{
+        Locations = $regionName
+    }
+    foreach ($property in $propertyFilter) {
+        "Adding property $property"
+        Add-Member -InputObject $obj -MemberType NoteProperty -Name $property -Value $sku.$property -Force
+    }
+    $script:SKUs += $obj
+    #$script:SKUs | ConvertTo-Json
+}
+
+
+Function Get-ResourceTypeParameters {
+    param (
+        [Parameter(Mandatory = $true)][string]$ResourceType
+    )
+    # This function retrieves the parameters for a given resource type from the property maps.
+    $propertyMapJson = Get-Content -path ".\propertymaps\propertyMaps.json" | ConvertFrom-Json
+    $propertyExists = $propertyMapJson | Where-Object { $psitem.resourceType -eq $ResourceType }
+    if ($propertyExists) {
+        set-variable -Name 'resourceProps' -Value $propertyExists -scope script
+    }
+    else {
+        Write-Output "No property map found for resource type $ResourceType"
+    }
+}
+
+function Group-ByPropertiesWithLocations {
+    param(
+        [Parameter(Mandatory)][array]$InputObjects,
+        [Parameter(Mandatory)][string[]]$GroupProperties
+    )
+
+    $InputObjects | Group-Object -Property $GroupProperties | ForEach-Object {
+        # Start a new hashtable for the grouped object
+        $props = @{}
+        # Copy the grouping properties into the output object
+        foreach ($prop in $GroupProperties) {
+            $props[$prop] = $psitem.Group[0].$prop
+        }
+        # Always add Locations (collected & deduped)
+        $props["Locations"] = $psitem.Group.Locations | Sort-Object -Unique
+        # Emit PSCustomObject
+        [PSCustomObject]$props
+    }
+}
+
+Function Get-ResourceType {
+    param (
+        [Parameter(Mandatory = $true)][string]$ResourceType,
+        [Parameter(Mandatory = $true)][string]$outPutFile
+    )
+    # This bit should be put in a config file and a sub function called to get it, maybe have config file already read so it is in memory
+    Get-ResourceTypeParameters -ResourceType $ResourceType
+    #$resourceProps | ConvertTo-Json
+    $uri01 = $resourceProps.uri
+    $propertyFilter = $resourceProps.properties
+    $startLevel = $resourceProps.startLevel
+    $parentProperty = $resourceProps.parentProperty
+    $script:SKUs = @()
+    #$Regions | convertto-json 
+    "regions count: " + $Regions.Count
+    $regions | convertto-json
+    Foreach ($region in $Regions_All.ShortList) {
+        $region
+        $uri = $uri01 -f $subscriptionId, $region
+        "Invoke-AzRestMethod -Uri $uri -Method Get"
+        $Response = (Invoke-AzRestMethod -Uri $uri -Method Get).Content | ConvertFrom-Json -depth 100
+        $response | convertto-json
+        # Handle cases where the response might be wrapped in a 'Value' property
+        if ($Response.PSObject.Properties.Name -contains 'Value') {
+            $Response = $Response.Value
+        }
+        # If ($startLevel) {
+        #     $response = $Response
+        #     $Response = $Response.$startLevel
+        #     $response
+        # Get-AllProperty -Node $Response -PropertyName $parentProperty | ForEach-Object {
+        #     Get-PropertyMap -propertyFilter $propertyFilter -sku $psitem -regionName $region.name
+        #  }
+        "Using Expand-NestedCollection"
+        Expand-NestedCollection -InputObjects $response -Schema $propertyFilter  
+        $script:SKUs | ConvertTo-Json
+    }
+    # else {
+    #     foreach ($sku in $Response) {
+    #         Get-PropertyMap -propertyFilter $propertyFilter -sku $sku -regionName $region.name 
+    #     }
+    # }
+    $result = Group-ByPropertiesWithLocations -InputObjects $script:SKUs -GroupProperties $propertyFilter
+    $result | ConvertTo-Json -Depth 3
+    Out-JSONFile -Data $result -fileName $outPutFile
+}
+
+
 
 function Import-SKU-SQL {
     param (
@@ -215,8 +376,8 @@ function Import-SKU-SQL {
     # This function retrieves the SKU information for SQL resources based on the specified resource type.
     switch ($ResourceTypeSQL) {
         "servers/databases" {
-           $OutputText = "SQL Server database"
-           $OutputFile = "Azure_SKUs_SQL_Server_Database.json"
+            $OutputText = "SQL Server database"
+            $OutputFile = "Azure_SKUs_SQL_Server_Database.json"
         }
         "managedInstances" {
             $OutputText = "SQL managed instance"
@@ -231,10 +392,10 @@ function Import-SKU-SQL {
     $SKUs = @()
     # Find the Microsoft.Sql provider from the available providers
     Write-Output "  Retrieving $OutputText SKU regions information" | Out-Host
-    $Resources_SQL = $Resources_All | Where-Object { $_.Namespace -ieq "Microsoft.Sql" }
+    $Resources_SQL = $Resources_All | Where-Object { $psitem.Namespace -ieq "Microsoft.Sql" }
     if ($Resources_SQL) {
         # Select the resource type for specific SQL SKUs
-        $Resource_SQL = $Resources_SQL.ResourceTypes | Where-Object { $_.Type -ieq $ResourceTypeSQL }
+        $Resource_SQL = $Resources_SQL.ResourceTypes | Where-Object { $psitem.Type -ieq $ResourceTypeSQL }
         if ($Resource_SQL) {
             Write-Output "  Adding $OutputText SKUs for consolidated regions" | Out-Host
             $Regions = $Resource_SQL.Locations
@@ -243,7 +404,7 @@ function Import-SKU-SQL {
             foreach ($Region in $Regions) {
                 $CurrentRegionIndex++
                 # Convert the display region into a region code for the URL
-                $RegionCode = ($Region -replace '\s','').ToLower()
+                $RegionCode = ($Region -replace '\s', '').ToLower()
                 Write-Output ("    Retrieving $OutputText SKU for region {0:D03} of {1:D03}: {2}" -f $CurrentRegionIndex, $TotalRegions, $Region) | Out-Host
                 try {
                     switch ($ResourceTypeSQL) {
@@ -260,15 +421,15 @@ function Import-SKU-SQL {
                                         foreach ($edition in $_.supportedEditions) {
                                             if ($edition.supportedServiceLevelObjectives) {
                                                 $allSkus += ($edition.supportedServiceLevelObjectives | ForEach-Object {
-                                                    $_.sku
-                                                })
+                                                        $_.sku
+                                                    })
                                             }
                                         }
                                     }
                                     # Group and consolidate duplicates based on sku name, tier, family, and capacity
                                     $uniqueSkus = $allSkus |
-                                        Group-Object -Property { "$($_.name)|$($_.tier)|$($_.family)|$($_.capacity)" } |
-                                        ForEach-Object { $_.Group[0] }
+                                    Group-Object -Property { "$($_.name)|$($_.tier)|$($_.family)|$($_.capacity)" } |
+                                    ForEach-Object { $_.Group[0] }
                                     # Transform each consolidated SKU object, retaining the original properties
                                     $uniqueSkus = $uniqueSkus | ForEach-Object {
                                         $obj = [PSCustomObject]@{
@@ -410,7 +571,8 @@ function Import-SKU-StorageAccount {
                 $CapabilitiesProperties[$Key] = $NameValuePair[1].Trim()
             }
         }
-        foreach ($Location in $_.locations) {  # Process each location as its own entry
+        foreach ($Location in $_.locations) {
+            # Process each location as its own entry
             $SKUs += @{
                 Name     = $_.name
                 Location = $Location
@@ -439,7 +601,8 @@ function Import-CurrentEnvironment {
     if (Test-Path $SummaryFilePath) {
         Write-Output "  Loading summary file: ../1-Collect/summary.json" | Out-Host
         $CurrentEnvironment = Get-Content -Path $SummaryFilePath | ConvertFrom-Json
-    } else {
+    }
+    else {
         Write-Output "File 'summary.json' not found in '../1-Collect/summary.json'."
         exit 1
     }
@@ -522,13 +685,16 @@ function Expand-CurrentToGlobal {
                     }
                     # Add or replace the AllRegions property with the mapped availability array
                     $resource | Add-Member -Force -MemberType NoteProperty -Name AllRegions -Value $MappedRegions
-                } else {
+                }
+                else {
                     Write-Output ("      Resource type '{0}' under namespace '{1}' not found in Resources_All" -f $rt, $ns)
                 }
-            } else {
+            }
+            else {
                 Write-Output ("      Namespace '{0}' not found in Resources_All" -f $ns)
             }
-        } else {
+        }
+        else {
             Write-Output ("      Invalid ResourceType format: {0}" -f $resource.ResourceType)
         }
     }
@@ -568,7 +734,7 @@ function Join-SKU2Region {
                 Write-Output ("    Processing region {0:D3} of {1:D3}: {2}" -f $CurrentRegionIndex, $TotalRegions, $Region.region)
                 $newSKUs = @()
                 switch ($ResourceType) {
-                    {($_ -eq "microsoft.compute/disks") -or ($_ -eq "microsoft.storage/storageaccounts")} {
+                    { ($_ -eq "microsoft.compute/disks") -or ($_ -eq "microsoft.storage/storageaccounts") } {
                         # Process SKUs for compute disks or storage accounts
                         # # Check for compute disks is against storage account SKUs because because compute disks will be reported back in storage account SKU format
                         foreach ($sku in $Region.SKUs) {
@@ -627,8 +793,8 @@ function Join-SKU2Region {
                             $isAvailable = "false"
                             if ($sqlRegionData) {
                                 foreach ($dbSku in $sqlRegionData.skus) {
-                                    $matchName   = ($dbSku.name -ieq $sku.name)
-                                    $matchTier   = ($dbSku.tier -ieq $sku.tier)
+                                    $matchName = ($dbSku.name -ieq $sku.name)
+                                    $matchTier = ($dbSku.tier -ieq $sku.tier)
                                     $matchFamily = ($dbSku.family -ieq $sku.family)
                                     # Capacity property can be ignored for managed instances because if all other properties match, it can be considered available.
                                     if ($matchName -and $matchTier -and $matchFamily) {
@@ -654,8 +820,8 @@ function Join-SKU2Region {
                             $isAvailable = "false"
                             if ($sqlRegionData) {
                                 foreach ($dbSku in $sqlRegionData.skus) {
-                                    $matchName     = ($dbSku.name -eq $sku.name)
-                                    $matchTier     = ($dbSku.tier -eq $sku.tier)
+                                    $matchName = ($dbSku.name -eq $sku.name)
+                                    $matchTier = ($dbSku.tier -eq $sku.tier)
                                     $matchCapacity = ($dbSku.capacity -eq $sku.capacity)
                                     # Check for family property if it exists on either side.
                                     $matchFamily = $true
@@ -699,32 +865,40 @@ clear-host
 # Start of resource and SKU availability retrieval
 Write-Headline "RETRIEVING ALL AVAILABILITIES IN THIS SUBSCRIPTION"
 # Initialize the REST API connection
-$RESTAPI = Initialize-RESTAPI
-# Import all resource types
-$Resources_All = (Import-Provider).Data
+$subscriptionId = (Get-AzContext).Subscription.Id
+$uriRoot = "https://management.azure.com/subscriptions/$subscriptionId"
+$Resources_All = (Import-Provider -uriRoot $uriRoot).Data
 # Import all Azure regions
 $Regions_All = Import-Region
-# Import VM SKUs
-$VM_SKU = (Import-SKU-VM).Data
-# Import SQL managed instance SKUs
-$SQL_ManagedInstance_SKU = (Import-SKU-SQL -ResourceTypeSQL "managedInstances").Data
-# Import SQL Server database SKUs
-$SQL_Server_Database_SKU = (Import-SKU-SQL -ResourceTypeSQL "servers/databases").Data
-# Import storage account SKUs
-$StorageAccount_SKU = (Import-SKU-StorageAccount).Data
-# Start of availability mapping to current implementation
-Write-Headline "AVAILABILITY MAPPING TO CURRENT IMPLEMENTATION"
-# Import current environment data from the summary file of script 1-Collect
-$AvailabilityMapping = (Import-CurrentEnvironment).Data
-# Expand the current implementation to show availability across all Azure regions
-Expand-CurrentToGlobal
-# Initialize SKU to region mapping for resources that have implemented SKUs
-Initialize-SKU2Region
-# Availability SKU mappings
-Join-SKU2Region -ResourceType "microsoft.compute/disks"
-Join-SKU2Region -ResourceType "microsoft.compute/virtualMachines"
-Join-SKU2Region -ResourceType "microsoft.sql/managedinstances"
-Join-SKU2Region -ResourceType "microsoft.sql/servers/databases"
-Join-SKU2Region -ResourceType "microsoft.storage/storageaccounts"
-# Save the availability mapping to a JSON file
-Out-JSONFile -Data $AvailabilityMapping -fileName "Availability_Mapping.json"
+$Regions_All.map | convertto-json #| select -Property name
+
+# fIXME loop to get only collected resources
+# # Import VM SKUs
+# Get-ResourceType -ResourceType "microsoft.compute/virtualmachines" -outPutFile "VM_SKUs.json"
+# Get-ResourceType -ResourceType "microsoft.sql/servers/databases" -outPutFile "SQL_Server_Database_SKUs.json"
+Get-ResourceType -ResourceType "microsoft.sql/managedinstances" -outPutFile "SQL_Managed_Instance_SKUsnew.json"
+#Get-ResourceType -ResourceType "microsoft.storage/storageaccounts" -outPutFile "Storage_Account_SKUs.json"
+#Get-ResourceType -ResourceType "microsoft.compute/disks" -outPutFile "Disk_SKUs.json"
+#$VM_SKU = (Import-SKU-VM).Data
+# # Import SQL managed instance SKUs
+# $SQL_ManagedInstance_SKU = (Import-SKU-SQL -ResourceTypeSQL "managedInstances").Data
+# # Import SQL Server database SKUs
+# $SQL_Server_Database_SKU = (Import-SKU-SQL -ResourceTypeSQL "servers/databases").Data
+# # Import storage account SKUs
+# $StorageAccount_SKU = (Import-SKU-StorageAccount).Data
+# # Start of availability mapping to current implementation
+# Write-Headline "AVAILABILITY MAPPING TO CURRENT IMPLEMENTATION"
+# # Import current environment data from the summary file of script 1-Collect
+# $AvailabilityMapping = (Import-CurrentEnget-avavironment).Data
+# # Expand the current implementation to show availability across all Azure regions
+# Expand-CurrentToGlobal
+# # Initialize SKU to region mapping for resources that have implemented SKUs
+# Initialize-SKU2Region
+# # Availability SKU mappings
+# Join-SKU2Region -ResourceType "microsoft.compute/disks"
+# Join-SKU2Region -ResourceType "microsoft.compute/virtualMachines"
+# Join-SKU2Region -ResourceType "microsoft.sql/managedinstances"
+# Join-SKU2Region -ResourceType "microsoft.sql/servers/databases"
+# Join-SKU2Region -ResourceType "microsoft.storage/storageaccounts"
+# # Save the availability mapping to a JSON file
+# Out-JSONFile -Data $AvailabilityMapping -fileName "Availability_Mapping.json"

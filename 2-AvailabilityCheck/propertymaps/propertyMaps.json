@@ -1,0 +1,43 @@
+[
+  {
+    "resourceType": "microsoft.compute/virtualmachines",
+    "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Compute/locations/{1}/vmSizes?api-version=2022-03-01",
+    "properties": ["name", "numberOfCores", "memoryInMB"],
+    "startLevel": null,
+    "parentProperty": null
+  },
+  {
+    "resourceType": "microsoft.Compute/disks",
+    "properties": ["name", "diskSizeGB", "tier"]
+  },
+  {
+    "resourceType": "microsoft.sql/servers/databases",
+    "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Sql/locations/{1}/capabilities?api-version=2021-02-01-preview",
+    "properties": ["name", "tier", "capacity"],
+    "startLevel": "supportedServerVersions",
+    "parentProperty": "sku"
+  },
+  {
+    "resourceType": "microsoft.sql/managedinstances",
+    "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Sql/locations/{1}/capabilities?api-version=2021-02-01-preview",
+    "properties": ["name", "tier", "capacity"],
+    "startLevel": "supportedInstanceVersions",
+    "parentProperty": "sku",
+    "properties": {
+      "startPath": [
+        "supportedManagedInstanceVersions",
+        "supportedEditions"
+      ],
+      "TopLevelProperties": {
+        "tier": "name"
+      },
+      "ChildProperties": {
+        "name": "supportedFamilies",
+        "props": {
+          "Family": "name",
+          "sku": "sku"
+        }
+      }
+    }
+  }
+]
