@@ -36,9 +36,9 @@ Write-Output ""
 
 # Loading all region availabilities from the JSON file
 Write-Output "Retrieving availability implementation for all regions"
-$AvailabilityFilePath = Join-Path (Get-Location) "Availability_Mapping.json"
+$AvailabilityFilePath = Join-Path (Get-Location) "Availability_Mapping_Final.json"
 if (Test-Path $AvailabilityFilePath) {
-    Write-Output "  Loading availability file: Availability_Mapping.json"
+    Write-Output "  Loading availability file: Availability_Mapping_Final.json"
     $mappingData = Get-Content -Path $AvailabilityFilePath -Raw | ConvertFrom-Json
 } else {
     Write-Output "File 'Availability_Mapping.json' was not found in the current directory."

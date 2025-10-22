@@ -2,32 +2,54 @@
   {
     "resourceType": "microsoft.compute/virtualmachines",
     "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Compute/locations/{1}/vmSizes?api-version=2022-03-01",
-    "properties": ["name", "numberOfCores", "memoryInMB"],
     "startLevel": null,
-    "parentProperty": null
+    "parentProperty": null,
+    "properties": {
+      "startPath": [],
+      "TopLevelProperties": {
+        "name": "name"
+      }
+    }
   },
   {
-    "resourceType": "microsoft.Compute/disks",
-    "properties": ["name", "diskSizeGB", "tier"]
+    "resourceType": "microsoft.storage/storageaccounts",
+    "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Storage/skus?api-version=2021-01-01",
+    "properties": {
+      "startPath": [],
+      "TopLevelProperties": {
+        "name": "name",
+        "tier": "tier",
+        "kind": "kind"
+      }
+    }
   },
   {
     "resourceType": "microsoft.sql/servers/databases",
     "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Sql/locations/{1}/capabilities?api-version=2021-02-01-preview",
-    "properties": ["name", "tier", "capacity"],
     "startLevel": "supportedServerVersions",
-    "parentProperty": "sku"
+    "parentProperty": "sku",
+    "properties": {
+      "startPath": [
+        "supportedServerVersions",
+        "supportedEditions",
+        "supportedServiceLevelObjectives",
+        "sku"
+      ],
+      "TopLevelProperties": {
+        "name": "name",
+        "tier": "tier",
+        "capacity": "capacity",
+        "family": "family"
+      }
+    }
   },
   {
     "resourceType": "microsoft.sql/managedinstances",
     "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Sql/locations/{1}/capabilities?api-version=2021-02-01-preview",
-    "properties": ["name", "tier", "capacity"],
     "startLevel": "supportedInstanceVersions",
     "parentProperty": "sku",
     "properties": {
-      "startPath": [
-        "supportedManagedInstanceVersions",
-        "supportedEditions"
-      ],
+      "startPath": ["supportedManagedInstanceVersions", "supportedEditions"],
       "TopLevelProperties": {
         "tier": "name"
       },
