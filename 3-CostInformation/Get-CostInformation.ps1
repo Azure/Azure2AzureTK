@@ -20,7 +20,7 @@
     The stem of the output file to be created. The extension will be added automatically based on the output format. Not used if outputFormat is 'console'.
 
 .PARAMETER outputFormat
-    The format of the output file. Supported formats are 'json', 'csv', and 'console'. Default is 'json'.
+    The format of the output file. Supported formats are 'json', 'csv', 'excel' and 'console'. Default is 'json'.
 
 .PARAMETER testMode
     If set, only the first subscription ID will be used to retrieve a quick result set for testing purposes.

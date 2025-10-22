@@ -17,6 +17,9 @@
 3-CostInformation/*.csv
 3-CostInformation/*.xls
 3-CostInformation/*.xlsx
+7-Report/*.csv
+7-Report/*.xls
+7-Report/*.xlsx
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -406,3 +409,4 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+.DS_Store
