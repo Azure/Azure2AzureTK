@@ -2,8 +2,7 @@
   {
     "resourceType": "microsoft.compute/virtualmachines",
     "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Compute/locations/{1}/vmSizes?api-version=2022-03-01",
-    "startLevel": null,
-    "parentProperty": null,
+    "regionalApi": true,
     "properties": {
       "startPath": [],
       "TopLevelProperties": {
@@ -14,20 +13,19 @@
   {
     "resourceType": "microsoft.storage/storageaccounts",
     "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Storage/skus?api-version=2021-01-01",
+    "regionalApi": false,
     "properties": {
       "startPath": [],
       "TopLevelProperties": {
         "name": "name",
-        "tier": "tier",
-        "kind": "kind"
+        "tier": "tier"
       }
     }
   },
   {
     "resourceType": "microsoft.sql/servers/databases",
     "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Sql/locations/{1}/capabilities?api-version=2021-02-01-preview",
-    "startLevel": "supportedServerVersions",
-    "parentProperty": "sku",
+    "regionalApi": true,
     "properties": {
       "startPath": [
         "supportedServerVersions",
@@ -46,8 +44,7 @@
   {
     "resourceType": "microsoft.sql/managedinstances",
     "uri": "https://management.azure.com/subscriptions/{0}/providers/Microsoft.Sql/locations/{1}/capabilities?api-version=2021-02-01-preview",
-    "startLevel": "supportedInstanceVersions",
-    "parentProperty": "sku",
+    "regionalApi": true,
     "properties": {
       "startPath": ["supportedManagedInstanceVersions", "supportedEditions"],
       "TopLevelProperties": {
@@ -56,7 +53,7 @@
       "ChildProperties": {
         "name": "supportedFamilies",
         "props": {
-          "Family": "name",
+          "family": "name",
           "sku": "sku"
         }
       }
